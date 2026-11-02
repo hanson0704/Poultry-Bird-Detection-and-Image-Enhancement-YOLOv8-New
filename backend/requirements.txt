@@ -1,0 +1,21 @@
+# Backend dependencies (install into root .venv or backend/.venv).
+#
+# STEP 1 - PyTorch with CUDA 12.6 runtime (works with the NVIDIA driver 581.83 / CUDA 13.0 on this PC).
+#          Must be installed FIRST from the PyTorch index, otherwise pip pulls the CPU-only wheel:
+#   .\.venv\Scripts\python.exe -m pip install torch==2.14.1 torchvision --index-url https://download.pytorch.org/whl/cu126
+#   (CPU-only alternative:  .\.venv\Scripts\python.exe -m pip install torch==2.14.1 torchvision)
+#
+# STEP 2 - everything else:
+#   .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+
+ultralytics==8.4.197        # same version that saved best.pt
+numpy==2.3.5
+scipy==1.18.1
+opencv-python==5.0.0.93
+fastapi==0.162.0
+uvicorn[standard]==0.54.0
+python-multipart==0.0.33
+imageio-ffmpeg==0.8.0       # bundled ffmpeg binary for browser-compatible H.264 MP4 output
+pytest==9.2.0
+httpx==0.28.1
+

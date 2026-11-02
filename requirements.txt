@@ -1,0 +1,20 @@
+# Poultry-Bird-Detection-and-Image-Enhancement-YOLOv8 Dependencies
+#
+# STEP 1 - PyTorch with CUDA (recommended for GPU acceleration, e.g. CUDA 12.6):
+#   pip install torch==2.14.1 torchvision --index-url https://download.pytorch.org/whl/cu126
+#   (Or CPU-only: pip install torch==2.14.1 torchvision)
+#
+# STEP 2 - Core Vision, Backend & Utilities:
+#   pip install -r requirements.txt
+
+ultralytics==8.4.197
+numpy==2.3.5
+scipy==1.18.1
+opencv-python==5.0.0.93
+fastapi==0.162.0
+uvicorn[standard]==0.54.0
+python-multipart==0.0.33
+imageio-ffmpeg==0.8.0
+pytest==9.2.0
+httpx==0.28.1
+
