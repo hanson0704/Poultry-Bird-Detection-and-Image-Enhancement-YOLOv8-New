@@ -22,14 +22,14 @@ WEIGHTS_DIR = BACKEND_DIR / "weights"
 DEFAULT_WEIGHTS = WEIGHTS_DIR / "best.pt"
 
 AVAILABLE_MODELS = {
-    "yolov8m": {
-        "filename": "best.pt",
-        "description": "YOLOv8m Baseline (Accurate, 25.9M params)",
-        "default": True,
-    },
     "yolov8n": {
         "filename": "chicken_detector_yolov8n.pt",
-        "description": "YOLOv8n Lightweight (Fast, 3.0M params)",
+        "description": "YOLOv8n Lightweight (Fast & Accurate, 3.0M params)",
+        "default": True,
+    },
+    "yolov8m": {
+        "filename": "best.pt",
+        "description": "YOLOv8 Baseline (Accurate poultry detector)",
         "default": False,
     },
 }
@@ -169,7 +169,7 @@ class ChickenDetector:
         image_bgr: np.ndarray,
         conf: float = 0.25,
         iou: float = 0.45,
-        imgsz: Optional[int] = None,
+        imgsz: Optional[int] = 640,
         max_det: int = 1000,
         auto_enhance: bool = True,
         force_clahe: bool = False,
@@ -183,14 +183,22 @@ class ChickenDetector:
         iou = validate_threshold("iou", iou)
         h, w = image_bgr.shape[:2]
 
-        # Automatic low-light enhancement check
+        # Early return on completely blank/empty black frames
+        if int(image_bgr.max()) == 0:
+            empty4 = np.empty((0, 4), dtype=float)
+            return DetectionResult(
+                w, h, empty4, empty4.copy(), np.empty((0, 2)), np.empty((0,)),
+                np.empty((0,), dtype=int), [], 0.0, clahe_applied=False,
+                dedup_removed=0, brightness=0.0,
+            )
+
+        # Automatic low-light enhancement check (requires at least minimal signal brightness >= 1.0)
         brightness = compute_brightness(image_bgr)
-        apply_clahe = bool(force_clahe or (auto_enhance and brightness < 60.0))
+        apply_clahe = bool(force_clahe or (auto_enhance and 1.0 <= brightness < 60.0))
         infer_frame = enhance_low_light(image_bgr, clip_limit=3.5) if apply_clahe else image_bgr
 
-        kwargs = dict(conf=conf, iou=iou, device=self.device, verbose=False, max_det=max_det)
-        if imgsz:
-            kwargs["imgsz"] = int(imgsz)
+        target_imgsz = int(imgsz) if imgsz else 640
+        kwargs = dict(conf=conf, iou=iou, device=self.device, verbose=False, max_det=max_det, imgsz=target_imgsz)
         t0 = time.perf_counter()
         with self._lock:
             result = self.model.predict(infer_frame, **kwargs)[0]

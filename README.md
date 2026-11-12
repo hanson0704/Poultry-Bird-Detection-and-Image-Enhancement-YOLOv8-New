@@ -49,28 +49,14 @@ Poultry-Bird-Detection-and-Image-Enhancement-YOLOv8/
 │   ├── dist/                      # Production build distribution
 │   └── package.json               # Frontend dependencies and scripts
 │
-├── data/                          # Unified Dataset & Benchmark Directory
+├── data/                          # Dataset & Benchmark Directory
 │   ├── annotations/               # YOLO (.txt) and Pascal VOC (.xml) annotation files
-│   ├── test_images/               # 28 benchmark evaluation frames
-│   ├── train_images/              # 20 raw training image frames
+│   ├── test_images/               # Benchmark evaluation frames
+│   ├── train_images/              # Training image frames
 │   └── sample_videos/             # Sample tracking videos
 │
-├── research/                      # Research Code & Reference Implementations
-│   ├── experiments/               # Converted pure Python (.py) scripts from original Colab notebooks
-│   │   ├── broiler_density_detection.py
-│   │   ├── broiler_detection.py
-│   │   ├── broiler_distance_measure.py
-│   │   ├── broiler_sick_detection.py
-│   │   └── broiler_tracking.py
-│   └── legacy/                    # Historical research components (YOLOv4, Darknet, TF SavedModel)
-│       ├── darknet/
-│       ├── final_training/
-│       ├── multi-object-tracker/
-│       └── yolo-v4-tf.keras/
-│
-├── docs/                          # Technical Documentation & Source Audits
-│   ├── INTEGRATION_AUDIT.md       # Feasibility audit of Project A and Project B
-│   └── INTEGRATED_APP_SOURCE_AUDIT.md # Architecture audit and implementation plan
+├── docs/                          # Technical Documentation & Research Gaps
+│   └── LITERATURE_REVIEW_AND_RESEARCH_GAPS.md # Academic literature review and comparative analysis
 │
 ├── start_backend.bat              # One-click Windows launcher for FastAPI backend
 ├── start_frontend.bat             # One-click Windows launcher for Vite frontend
@@ -206,13 +192,13 @@ The primary detector was trained from the `yolov8m.pt` baseline using transfer l
 
 1. **Inactivity Indicator Is a Visual Motion Heuristic:** Low spatial displacement over a sliding window indicates low mobility, not a clinical veterinary diagnosis. Normal poultry behavior includes resting, brooding, and sleeping.
 2. **Pixel-Space Measurements:** All distance measurements (`px`), speeds (`px/s`), and nearest-neighbor distances are reported strictly in image pixel coordinates. Real-world metric dimensions (centimeters or meters) require camera calibration and perspective homography.
-3. **Sample Video Burn-In:** The historical sample video in `data/sample_videos/` was recorded during the original 2022 research challenge and has previous green annotations burned into the raw video. Uploading a clean MP4 clip provides unannotated input validation.
+3. **Sample Benchmark Media:** Certain pre-recorded sample benchmark videos contain burned-in reference indicators. User-uploaded clean MP4 clips will display only the application's native visual telemetry.
 
 ---
 
-## 10. Attribution and License
+## 10. License & Technologies
 
-- **Poultry Detection Model:** Developed and trained using Ultralytics YOLOv8.
-- **Original Challenge Research:** Based on *Chicken Behavior Analysis* (Second Place, 12th International Conference on Computer and Knowledge Engineering, 2022) by Tahereh Zarrat Ehsan and Seyed Mehdi Mohtavipour Shafti.
-- **Tracking Algorithm:** Ultralytics BYTETracker with SciPy LAP optimization; fallback tracking adapted from `motrackers` by Aditya M. Deshpande.
+- **Vision Core:** Built with PyTorch, Ultralytics YOLOv8, ByteTrack, and OpenCV.
+- **Backend Architecture:** Asynchronous FastAPI REST framework with Uvicorn and ImageIO FFmpeg.
+- **Frontend Dashboard:** React 18, Vite 6, and modern CSS telemetry interfaces.
 - **License:** Apache 2.0 License.

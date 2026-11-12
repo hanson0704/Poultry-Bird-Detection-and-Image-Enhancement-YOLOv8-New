@@ -207,7 +207,7 @@ export default function ModelDiagnosticsPage() {
         {!training || !training.available ? (
           <div className="alert info" style={{ marginBottom: 0 }}>
             <strong>No results.csv found:</strong> {training?.note || 'Training log not present.'} No precision,
-            recall, or mAP metrics are fabricated. If you copy <code>results.csv</code> from your Colab training run into{' '}
+            recall, or mAP metrics are fabricated. If you place <code>results.csv</code> from your model training run into{' '}
             <code>backend/weights/results.csv</code>, this section will automatically display the recorded epoch
             metrics.
           </div>

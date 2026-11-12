@@ -37,7 +37,7 @@ def test_model_info_endpoint(client: TestClient):
     r = client.get("/api/model/info")
     assert r.status_code == 200
     data = r.json()
-    assert data["model"]["weights_file"] == "best.pt"
+    assert data["model"]["weights_file"] in ("best.pt", "chicken_detector_yolov8n.pt")
     assert data["model"]["num_classes"] == 1
     assert "0" in data["model"]["class_names"] or 0 in data["model"]["class_names"]
     # Optional training metrics should be reported honestly

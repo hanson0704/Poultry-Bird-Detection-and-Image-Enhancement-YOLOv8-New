@@ -55,7 +55,7 @@ def health_check():
 
 
 @router.get("/model/info")
-def model_info(model_name: Optional[str] = Query("yolov8m")):
+def model_info(model_name: Optional[str] = Query("yolov8n")):
     try:
         det = get_detector(model_name)
     except FileNotFoundError as exc:

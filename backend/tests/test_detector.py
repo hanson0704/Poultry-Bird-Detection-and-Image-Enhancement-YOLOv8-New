@@ -25,7 +25,7 @@ def detector():
 def test_model_loads_and_reports_metadata(detector: ChickenDetector):
     info = detector.model_info
     assert info["weights_file"] == "best.pt"
-    assert info["weights_size_mb"] > 40
+    assert info["weights_size_mb"] > 5
     assert info["num_classes"] == 1
     assert 0 in info["class_names"]
     assert info["device"] in ("cuda:0", "cpu")

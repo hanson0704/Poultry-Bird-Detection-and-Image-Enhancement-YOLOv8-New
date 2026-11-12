@@ -4,8 +4,7 @@ Multi-object tracking adapter for YOLOv8 detections.
 Supports two tracking engines:
 1. `bytetrack` (Ultralytics ByteTrack with Kalman filter motion prediction and two-stage
    association; recommended default for crowded poultry videos).
-2. `centroid` (Original greedy `CentroidTracker` from the vendored `multi-object-tracker`
-   library with optional distance gating).
+2. `centroid` (Greedy `CentroidTracker` baseline with optional distance gating).
 """
 from __future__ import annotations
 
@@ -26,44 +25,123 @@ from scipy.spatial import distance
 from app.core.lap_shim import ensure_scipy_lap_shim
 ensure_scipy_lap_shim()
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-MOTRACKERS_DIR = (
-    REPO_ROOT / "research" / "legacy" / "multi-object-tracker" / "motrackers"
-    if (REPO_ROOT / "research" / "legacy" / "multi-object-tracker" / "motrackers").is_dir()
-    else REPO_ROOT / "multi-object-tracker" / "motrackers"
-)
+
+class Track:
+    """Internal track representation storing bounding box, confidence, and observation history."""
+
+    def __init__(self, track_id: int, frame_id: int, bbox: np.ndarray, detection_confidence: float, class_id=None, lost: int = 0):
+        self.id = int(track_id)
+        self.frame_id = int(frame_id)
+        self.bbox = np.asarray(bbox, dtype=float)
+        self.detection_confidence = float(detection_confidence)
+        self.class_id = class_id
+        self.lost = int(lost)
+
+    def update(self, frame_id: int, bbox: np.ndarray, detection_confidence: float, class_id=None, lost: int = 0):
+        self.frame_id = int(frame_id)
+        self.bbox = np.asarray(bbox, dtype=float)
+        self.detection_confidence = float(detection_confidence)
+        self.class_id = class_id
+        if lost == 0:
+            self.lost = 0
+        else:
+            self.lost += lost
+
+    @property
+    def centroid(self) -> np.ndarray:
+        return np.array([self.bbox[0] + 0.5 * self.bbox[2], self.bbox[1] + 0.5 * self.bbox[3]], dtype=float)
+
+    def output(self) -> Tuple:
+        return (
+            self.frame_id, self.id,
+            float(self.bbox[0]), float(self.bbox[1]), float(self.bbox[2]), float(self.bbox[3]),
+            float(self.detection_confidence), -1, -1, -1
+        )
 
 
-def _load_original_motrackers():
-    """Load motrackers.tracker.Tracker from the original files without running package __init__s."""
-    if "motrackers.tracker" in sys.modules and hasattr(sys.modules["motrackers.tracker"], "Tracker"):
-        return sys.modules["motrackers.tracker"].Tracker
-    if not MOTRACKERS_DIR.is_dir():
-        raise ImportError(f"Original tracker library not found at {MOTRACKERS_DIR}")
-
-    # Lightweight package shells so 'from motrackers.x import y' resolves to the original files.
-    for pkg_name, pkg_dir in (("motrackers", MOTRACKERS_DIR), ("motrackers.utils", MOTRACKERS_DIR / "utils")):
-        if pkg_name not in sys.modules:
-            pkg = types.ModuleType(pkg_name)
-            pkg.__path__ = [str(pkg_dir)]
-            sys.modules[pkg_name] = pkg
-
-    def _load(mod_name: str, file_path: Path):
-        spec = importlib.util.spec_from_file_location(mod_name, file_path)
-        module = importlib.util.module_from_spec(spec)
-        sys.modules[mod_name] = module
-        spec.loader.exec_module(module)
-        return module
-
-    _load("motrackers.utils.misc", MOTRACKERS_DIR / "utils" / "misc.py")
-    _load("motrackers.kalman_tracker", MOTRACKERS_DIR / "kalman_tracker.py")
-    _load("motrackers.track", MOTRACKERS_DIR / "track.py")
-    tracker_mod = _load("motrackers.tracker", MOTRACKERS_DIR / "tracker.py")
-    return tracker_mod.Tracker
+def get_centroid(bboxes: np.ndarray) -> np.ndarray:
+    """Compute centroid coordinates (x, y) for bounding boxes in (xmin, ymin, w, h) format."""
+    b = np.asarray(bboxes, dtype=float)
+    if b.ndim == 1:
+        return np.array([b[0] + 0.5 * b[2], b[1] + 0.5 * b[3]], dtype=float)
+    return np.column_stack([b[:, 0] + 0.5 * b[:, 2], b[:, 1] + 0.5 * b[:, 3]])
 
 
-OriginalCentroidTracker = _load_original_motrackers()
-from motrackers.utils.misc import get_centroid  # noqa: E402  (original helper)
+class OriginalCentroidTracker:
+    """Greedy centroid association tracker."""
+
+    def __init__(self, max_lost: int = 5, tracker_output_format: str = "mot_challenge"):
+        self.next_track_id = 0
+        self.tracks: Dict[int, Track] = {}
+        self.max_lost = max_lost
+        self.frame_count = 0
+        self.tracker_output_format = tracker_output_format
+
+    def _add_track(self, frame_id: int, bbox, detection_confidence: float, class_id=None):
+        self.tracks[self.next_track_id] = Track(
+            self.next_track_id, frame_id, bbox, detection_confidence, class_id=class_id
+        )
+        self.next_track_id += 1
+
+    def _remove_track(self, track_id: int):
+        if track_id in self.tracks:
+            del self.tracks[track_id]
+
+    def _update_track(self, track_id: int, frame_id: int, bbox, detection_confidence: float, class_id=None):
+        if track_id in self.tracks:
+            self.tracks[track_id].update(frame_id, bbox, detection_confidence, class_id=class_id, lost=0)
+
+    @staticmethod
+    def _get_tracks(tracks: Dict[int, Track]) -> List[Tuple]:
+        return [track.output() for track in tracks.values() if not track.lost]
+
+    @staticmethod
+    def preprocess_input(bboxes, class_ids, detection_scores):
+        new_bboxes = np.asarray(bboxes, dtype=float)
+        new_class_ids = np.asarray(class_ids, dtype=int)
+        new_detection_scores = np.asarray(detection_scores, dtype=float)
+        return list(zip(new_bboxes, new_class_ids, new_detection_scores))
+
+    def update(self, bboxes, detection_scores, class_ids):
+        self.frame_count += 1
+
+        if len(bboxes) == 0:
+            for track_id in list(self.tracks.keys()):
+                self.tracks[track_id].lost += 1
+                if self.tracks[track_id].lost > self.max_lost:
+                    self._remove_track(track_id)
+            return self._get_tracks(self.tracks)
+
+        detections = self.preprocess_input(bboxes, class_ids, detection_scores)
+        track_ids = list(self.tracks.keys())
+        updated_tracks, updated_detections = [], []
+
+        if len(track_ids):
+            track_centroids = np.array([self.tracks[tid].centroid for tid in track_ids])
+            detection_centroids = get_centroid(np.asarray(bboxes, dtype=float))
+            centroid_distances = distance.cdist(track_centroids, detection_centroids)
+            track_indices = np.amin(centroid_distances, axis=1).argsort()
+
+            for idx in track_indices:
+                track_id = track_ids[idx]
+                remaining = [(i, d) for (i, d) in enumerate(centroid_distances[idx, :])
+                             if i not in updated_detections]
+                if remaining:
+                    det_idx, det_dist = min(remaining, key=lambda x: x[1])
+                    bbox, class_id, confidence = detections[det_idx]
+                    self._update_track(track_id, self.frame_count, bbox, confidence, class_id=class_id)
+                    updated_detections.append(det_idx)
+                    updated_tracks.append(track_id)
+                else:
+                    self.tracks[track_id].lost += 1
+                    if self.tracks[track_id].lost > self.max_lost:
+                        self._remove_track(track_id)
+
+        for i, (bbox, class_id, confidence) in enumerate(detections):
+            if i not in updated_detections:
+                self._add_track(self.frame_count, bbox, confidence, class_id=class_id)
+
+        return self._get_tracks(self.tracks)
 
 
 class GatedCentroidTracker(OriginalCentroidTracker):

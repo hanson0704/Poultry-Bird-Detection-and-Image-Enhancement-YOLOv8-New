@@ -37,13 +37,13 @@ latest_analyses: Dict[str, Optional[Dict]] = {
 
 def get_detector(model_name: Optional[str] = None) -> ChickenDetector:
     """
-    Returns a cached ChickenDetector instance for the requested model ('yolov8m' or 'yolov8n').
-    Defaults to 'yolov8m' (best.pt).
+    Returns a cached ChickenDetector instance for the requested model ('yolov8n' or 'yolov8m').
+    Defaults to 'yolov8n' (chicken_detector_yolov8n.pt).
     """
     global _detector_registry, _detector_error
-    key = str(model_name).lower().strip() if model_name else "yolov8m"
+    key = str(model_name).lower().strip() if model_name else "yolov8n"
     if key not in AVAILABLE_MODELS:
-        key = "yolov8m"
+        key = "yolov8n"
 
     with _detector_lock:
         if key in _detector_registry:
@@ -65,7 +65,7 @@ def get_health_payload() -> Dict:
 
     det = None
     try:
-        det = get_detector("yolov8m")
+        det = get_detector("yolov8n")
     except Exception:
         det = None
 
